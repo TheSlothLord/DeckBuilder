@@ -77,6 +77,7 @@ export function App() {
   };
   const doDeleteProject = async () => {
     if (!picked) return;
+    if (!window.confirm(`Delete saved project "${picked}"? This can't be undone.`)) return;
     await deleteProject(picked);
     setPicked('');
     await refresh();
@@ -117,7 +118,10 @@ export function App() {
     patch({ decks: project.decks.map((d, idx) => (idx === i ? { ...d, ...p } : d)) });
   const addDeck = () =>
     patch({ decks: [...project.decks, { id: `deck${Date.now()}`, label: `Deck ${project.decks.length + 1}`, length: 4000, width: 3000, spacing: 600, firstOffset: defaultProject.decks[0].firstOffset, noSeams: false }] });
-  const removeDeck = (i: number) => patch({ decks: project.decks.filter((_, idx) => idx !== i) });
+  const removeDeck = (i: number) => {
+    if (!window.confirm(`Delete deck "${project.decks[i]?.label}"? This can't be undone.`)) return;
+    patch({ decks: project.decks.filter((_, idx) => idx !== i) });
+  };
 
   const autoFitSpacing = (i: number) => {
     const d = project.decks[i];

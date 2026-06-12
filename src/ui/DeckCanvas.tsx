@@ -50,23 +50,40 @@ export function DeckCanvas({ layout, endGap }: Props) {
               const x1 = i < row.segments.length - 1 ? row.segments[i + 1].startMm : layout.lengthMm;
               const left = padX + x0 * s + (i === 0 ? 0 : seamGapPx / 2);
               const right = padX + x1 * s - (i === row.segments.length - 1 ? 0 : seamGapPx / 2);
+              const w = Math.max(0, right - left);
+              const fs = Math.min(11, (rh - 1) * 0.5);
+              const showName = rh > 9 && w > seg.name.length * fs * 0.62;
               return (
-                <rect
-                  key={`s${i}`}
-                  x={left}
-                  y={y + 0.5}
-                  width={Math.max(0, right - left)}
-                  height={rh - 1}
-                  rx={1}
-                  fill={seg.reusedOffcut ? 'var(--plank-alt)' : 'var(--plank)'}
-                  stroke="var(--plank-edge)"
-                  strokeWidth={0.6}
-                >
-                  <title>
-                    {seg.lengthMm} mm · {seg.bays} bay{seg.bays === 1 ? '' : 's'} · bar {seg.barId}
-                    {seg.reusedOffcut ? ' (offcut)' : ''}
-                  </title>
-                </rect>
+                <g key={`s${i}`}>
+                  <rect
+                    x={left}
+                    y={y + 0.5}
+                    width={w}
+                    height={rh - 1}
+                    rx={1}
+                    fill={seg.reusedOffcut ? 'var(--plank-alt)' : 'var(--plank)'}
+                    stroke="var(--plank-edge)"
+                    strokeWidth={0.6}
+                  >
+                    <title>
+                      {seg.name} · {seg.lengthMm} mm · {seg.bays} bay{seg.bays === 1 ? '' : 's'} · stock {seg.barId}
+                      {seg.reusedOffcut ? ' (offcut)' : ''}
+                    </title>
+                  </rect>
+                  {showName && (
+                    <text
+                      x={(left + right) / 2}
+                      y={y + 0.5 + (rh - 1) / 2}
+                      fontSize={fs}
+                      fill="var(--plank-text)"
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      pointerEvents="none"
+                    >
+                      {seg.name}
+                    </text>
+                  )}
+                </g>
               );
             })}
           </g>

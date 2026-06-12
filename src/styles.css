@@ -12,6 +12,7 @@
   --plank: #a07f4f;
   --plank-alt: #856a3f;
   --plank-edge: #5a4628;
+  --plank-text: #3a2a14;    /* board labels printed on planks */
   --joist: #79b6c9;       /* cool slate-blue — contrasts the warm planks */
   --joist-pin: #a7d6e6;
   --good: #62c487;
@@ -26,8 +27,17 @@ body { margin: 0; background: var(--bg); color: var(--ink); }
 .sidebar {
   background: var(--panel); border-right: 1px solid var(--line);
   padding: 16px; overflow-y: auto; height: 100vh; position: sticky; top: 0;
+  /* keep content clear of system bars if the platform draws edge-to-edge */
+  padding-top: calc(16px + env(safe-area-inset-top));
+  padding-left: calc(16px + env(safe-area-inset-left));
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
 }
-.main { padding: 20px 24px; overflow-x: auto; }
+.main {
+  padding: 20px 24px;
+  padding-right: calc(24px + env(safe-area-inset-right));
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  overflow-x: auto;
+}
 
 h1 { font-size: 18px; margin: 0 0 2px; }
 .ver { font-size: 11px; font-weight: 600; color: var(--muted); vertical-align: middle; }
@@ -112,6 +122,7 @@ table.cuts th, table.cuts td { text-align: left; padding: 5px 8px; border-bottom
 table.cuts th { color: var(--muted); font-weight: 600; }
 .tag { display: inline-block; background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; margin: 1px 3px 1px 0; font-size: 11px; }
 .tag.reuse { background: #1d3526; border-color: #2c5740; color: var(--good); }
+.tag-len { color: var(--muted); font-size: 10px; }
 .scrap { color: var(--accent); }
 .src { font-size: 10px; padding: 1px 5px; border-radius: 4px; vertical-align: 1px; }
 .src.onhand { background: #1d3526; color: var(--good); }

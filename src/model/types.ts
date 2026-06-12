@@ -87,6 +87,7 @@ export interface Project {
 // ---------------- results ----------------
 
 export interface Segment {
+  name: string; // board label, e.g. "A(3,2)" = deck A, row 3, 2nd plank in the row
   startMm: mm; // position of segment start along the row (0 = deck edge)
   lengthMm: mm; // cut length of the plank
   bays: number; // number of joist bays spanned

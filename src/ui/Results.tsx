@@ -100,9 +100,10 @@ export function Results({ result, endGap }: Props) {
       </table>
 
       <h2>Cut list</h2>
+      <p className="tagline">Each stock plank below, and the boards A(row,index) to cut from it.</p>
       <table className="cuts">
         <thead>
-          <tr><th>Bar</th><th>Stock</th><th>Cuts</th><th>Pieces</th><th>Remainder</th></tr>
+          <tr><th>Stock</th><th>Length</th><th>Cuts</th><th>Boards (length)</th><th>Remainder</th></tr>
         </thead>
         <tbody>
           {cutList.map((c) => (
@@ -112,8 +113,8 @@ export function Results({ result, endGap }: Props) {
               <td>{c.cuts}</td>
               <td>
                 {c.pieces.map((p, i) => (
-                  <span className={`tag${i > 0 ? ' reuse' : ''}`} key={i} title={p.usedIn}>
-                    {p.lengthMm}
+                  <span className={`tag${i > 0 ? ' reuse' : ''}`} key={i}>
+                    {p.usedIn} <span className="tag-len">{p.lengthMm}</span>
                   </span>
                 ))}
               </td>

@@ -108,7 +108,7 @@ function openBar(
   if (!chosen) return undefined;
   opened.set(keyOf(chosen), (opened.get(keyOf(chosen)) ?? 0) + 1);
   return {
-    id: `B${index + 1}`,
+    id: `S${index + 1}`,
     stockLength: chosen.length,
     remaining: chosen.length - leadTrim,
     pieces: [],

@@ -48,7 +48,9 @@ export function optimize(project: Project): Result {
   // Keep a handle from each demand id back to its Segment so we can attach the bar.
   const segIndex = new Map<string, Segment>();
 
-  for (const deck of decks) {
+  for (let deckIndex = 0; deckIndex < decks.length; deckIndex++) {
+    const deck = decks[deckIndex];
+    const deckLetter = deckLabel(deckIndex);
     const joists = joistPositions(deck, backingBoardWidth);
     const seams = legalSeams(deck, backingBoardWidth);
     const slots = rowSlots(deck, plank.width, gaps, widthFit);
@@ -134,6 +136,7 @@ export function optimize(project: Project): Result {
         const lengthMm = sel.cutLengths[i] ?? round(endPos - startPos);
         const bays = deck.spacing > 0 ? Math.max(1, Math.round((endPos - startPos) / deck.spacing)) : 1;
         const seg: Segment = {
+          name: `${deckLetter}(${r + 1},${i + 1})`,
           startMm: round(startPos),
           lengthMm,
           bays,
@@ -142,7 +145,7 @@ export function optimize(project: Project): Result {
         };
         segments.push(seg);
         const id = `${deck.id}#${r}#${i}`;
-        demand.push({ id, length: lengthMm, label: `${deck.label} · row ${r + 1} · seg ${i + 1}` });
+        demand.push({ id, length: lengthMm, label: seg.name });
         segIndex.set(id, seg);
       }
       if (sel.relaxed)
@@ -259,4 +262,16 @@ function computeShoppingList(bars: CutInstruction[], stock: StockOption[]): Shop
 
 function round(x: number): number {
   return Math.round(x * 1000) / 1000;
+}
+
+/** Deck index → spreadsheet-style letter: 0→A, 1→B, … 25→Z, 26→AA. */
+function deckLabel(i: number): string {
+  let n = i + 1;
+  let s = '';
+  while (n > 0) {
+    const r = (n - 1) % 26;
+    s = String.fromCharCode(65 + r) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
 }
