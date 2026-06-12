@@ -2,6 +2,7 @@
 // Grid → Stage A (candidates) → Stage B (stagger) → Stage C (cut stock) → stats.
 
 import type {
+  AngledCut,
   BomLine,
   BorderBoard,
   CutInstruction,
@@ -19,6 +20,7 @@ import { generateRowCandidates, type RowCandidate } from './candidates';
 import { chooseLayout } from './stagger';
 import { packCutStock, type DemandPiece } from './cutstock';
 import { makeRng } from './rng';
+import { normalizePolygon, rowSpans } from './polygon';
 
 const EPS = 1e-6;
 
@@ -56,6 +58,126 @@ export function optimize(project: Project): Result {
     const deckWarnings: string[] = [];
 
     const shape = deck.shape ?? 'rect';
+
+    // ---- Custom polygon shape ------------------------------------------------
+    // Lay planks across the bounding box; each plank row is clipped to the
+    // polygon (sampled at the row centreline, so non-convex decks split into
+    // several runs), and boundary planks get an angled (bevelled) end cut.
+    if (shape === 'custom') {
+      const { poly, width: polyW, height: polyH } = normalizePolygon(deck.points ?? []);
+      const joists = joistPositions({ ...deck, length: polyW }, backingBoardWidth);
+      const seams = joists.filter((j) => j > EPS && j < polyW - EPS);
+      const slots = rowSlots({ ...deck, width: polyH, length: polyW }, plank.width, gaps, widthFit);
+
+      let guard = stockLengths.length === 0;
+      if (!guard && (poly.length < 3 || polyW <= 0 || polyH <= 0)) {
+        deckWarnings.push(`"${deck.label}": add at least 3 corner points enclosing an area to lay out a custom shape.`);
+        guard = true;
+      } else if (!guard && deck.borderBoards > 0) {
+        deckWarnings.push(`"${deck.label}": picture-frame borders aren't supported on custom shapes yet — border ignored.`);
+      }
+      if (!guard && !deck.noSeams && deck.spacing <= 0) {
+        deckWarnings.push(`"${deck.label}": enter a backing-board spacing greater than 0 so seams have a board to land on.`);
+        guard = true;
+      }
+      if (!guard && seams.length > 600) {
+        deckWarnings.push(`"${deck.label}": a ${deck.spacing} mm spacing creates ${seams.length} seam positions — too many to lay out. Increase the board spacing.`);
+        guard = true;
+      }
+
+      // One "unit" (independent plank run) per covered span of each row.
+      type Unit = { slotIdx: number; slot: (typeof slots)[number]; leftTop: number; leftBot: number; rightTop: number; rightBot: number; innerL: number; innerR: number; drawL: number; drawR: number; bandH: number };
+      const units: Unit[] = [];
+      if (!guard) {
+        slots.forEach((slot, slotIdx) => {
+          if (slot.kind === 'gap') return;
+          const yTop = slot.yStartMm;
+          const bandH = slot.widthMm;
+          for (const sp of rowSpans(poly, yTop, Math.min(yTop + bandH, polyH))) {
+            const innerL = Math.max(sp.leftTop, sp.leftBot);
+            const innerR = Math.min(sp.rightTop, sp.rightBot);
+            const drawL = Math.min(sp.leftTop, sp.leftBot, sp.xL);
+            const drawR = Math.max(sp.rightTop, sp.rightBot, sp.xR);
+            if (drawR - drawL < 1) continue;
+            units.push({ slotIdx, slot, leftTop: sp.leftTop, leftBot: sp.leftBot, rightTop: sp.rightTop, rightBot: sp.rightBot, innerL, innerR, drawL, drawR, bandH });
+          }
+        });
+      }
+
+      const candsPerUnit: RowCandidate[][] = units.map((u) => {
+        const usable = round(u.innerR - u.innerL);
+        if (deck.noSeams || usable < stagger.minPieceLength) {
+          return [{ seams: [], cutLengths: [Math.max(0, usable)], estWaste: 0 }];
+        }
+        const localSeams = seams.filter((s) => s > u.innerL + EPS && s < u.innerR - EPS).map((s) => round(s - u.innerL));
+        const local = generateRowCandidates({ length: usable, legalSeams: localSeams, endGap: gaps.endGap, minPieceLength: stagger.minPieceLength, maxUsable, stockLengths, kerf: cut.kerf });
+        if (local.length === 0) return [{ seams: [], cutLengths: [usable], estWaste: 0 }];
+        return local.map((c) => ({ ...c, seams: c.seams.map((s) => round(s + u.innerL)) }));
+      });
+
+      const selections = guard ? [] : chooseLayout(candsPerUnit, stagger, rng, polyW || 1);
+
+      const rows: Row[] = [];
+      let rowCounter = 0;
+      const segBaseBySlot = new Map<number, number>();
+      selections.forEach((sel, ui) => {
+        const u = units[ui];
+        const angledLeft = Math.abs(u.leftTop - u.leftBot) > EPS;
+        const angledRight = Math.abs(u.rightTop - u.rightBot) > EPS;
+        const boundaries = [u.innerL, ...sel.seams, u.innerR];
+        const last = boundaries.length - 2;
+        const segBase = segBaseBySlot.get(u.slotIdx) ?? 0;
+        const segments: Segment[] = [];
+        for (let i = 0; i <= last; i++) {
+          const startPos = boundaries[i];
+          const endPos = boundaries[i + 1];
+          const isFirst = i === 0;
+          const isLast = i === last;
+          const drawStart = isFirst ? u.drawL : startPos;
+          const drawEnd = isLast ? u.drawR : endPos;
+          const lTop = isFirst && angledLeft ? u.leftTop : drawStart;
+          const lBot = isFirst && angledLeft ? u.leftBot : drawStart;
+          const rTop = isLast && angledRight ? u.rightTop : drawEnd;
+          const rBot = isLast && angledRight ? u.rightBot : drawEnd;
+          const longMm = round(Math.max(rTop - lTop, rBot - lBot));
+          const shortMm = round(Math.min(rTop - lTop, rBot - lBot));
+          const segCuts: AngledCut[] = [];
+          if (isFirst && angledLeft) segCuts.push({ side: 'L', longMm, shortMm, angleDeg: round((Math.atan2(Math.abs(u.leftTop - u.leftBot), u.bandH) * 180) / Math.PI) });
+          if (isLast && angledRight) segCuts.push({ side: 'R', longMm, shortMm, angleDeg: round((Math.atan2(Math.abs(u.rightTop - u.rightBot), u.bandH) * 180) / Math.PI) });
+          const lengthMm = segCuts.length ? longMm : round(endPos - startPos);
+          const bays = deck.spacing > 0 ? Math.max(1, Math.round((endPos - startPos) / deck.spacing)) : 1;
+          const name = `${deckLetter}(${u.slotIdx + 1},${segBase + i + 1})`;
+          const seg: Segment = { name, startMm: round(startPos), lengthMm, bays, barId: '', reusedOffcut: false, drawStartMm: round(drawStart), drawEndMm: round(drawEnd), cuts: segCuts.length ? segCuts : undefined };
+          segments.push(seg);
+          const id = `${deck.id}#${ui}#${i}`;
+          // Record the bevel in the cut-list label so angled ends are called out.
+          const bevel = segCuts.length
+            ? ` · bevel ${segCuts.map((c) => `${c.side} ${c.angleDeg}°`).join(', ')} (short ${shortMm} mm)`
+            : '';
+          demand.push({ id, length: lengthMm, label: name + bevel });
+          segIndex.set(id, seg);
+        }
+        segBaseBySlot.set(u.slotIdx, segBase + last + 1);
+        rows.push({ index: rowCounter++, widthMm: u.slot.widthMm, yStartMm: u.slot.yStartMm, xStartMm: round(u.drawL), runLengthMm: round(u.drawR - u.drawL), kind: u.slot.kind, overhangMm: u.slot.overhangMm, seams: sel.seams, segments });
+      });
+
+      layouts.push({
+        deckId: deck.id,
+        label: deck.label,
+        lengthMm: polyW,
+        widthMm: polyH,
+        plankWidthMm: plank.width,
+        fieldInsetMm: 0,
+        joistSpanWhole: true,
+        polygon: poly,
+        borderBoards: [],
+        joists,
+        rows,
+        warnings: deckWarnings,
+      });
+      warnings.push(...deckWarnings);
+      continue;
+    }
 
     // Framed border: N rings of boards around the perimeter; the planking field
     // shrinks by the border depth on all sides. For an L-shape the frame follows

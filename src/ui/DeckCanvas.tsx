@@ -21,6 +21,14 @@ function lOutlinePoints(L: number, W: number, n: Notch): Array<[number, number]>
 }
 
 export function DeckCanvas({ layout, endGap }: Props) {
+  // A degenerate deck (e.g. a custom polygon mid-edit) has no drawable size.
+  if (!(layout.lengthMm > 0) || !(layout.widthMm > 0)) {
+    return (
+      <svg viewBox="0 0 400 60" width="100%" style={{ maxWidth: 400, display: 'block' }} role="img" aria-label={`Plank layout for ${layout.label}`}>
+        <text x={8} y={34} fontSize={13} fill="var(--muted)">No drawable area — check this deck's size or corner points.</text>
+      </svg>
+    );
+  }
   const s = TARGET_W / layout.lengthMm; // px per mm
   const padX = 8;
   const padTop = 8;
@@ -44,11 +52,16 @@ export function DeckCanvas({ layout, endGap }: Props) {
   const h = contentBottom * s + padTop * 2;
   const seamGapPx = Math.max(1.5, endGap * s);
   const planks = layout.rows.filter((r) => r.kind !== 'gap');
-  const outlinePts = layout.notch
+  const outlinePts = layout.polygon
+    ? layout.polygon.map((p) => `${padX + p.x * s},${padTop + p.y * s}`).join(' ')
+    : layout.notch
     ? lOutlinePoints(layout.lengthMm, layout.widthMm, layout.notch)
         .map(([x, y]) => `${padX + x * s},${padTop + y * s}`)
         .join(' ')
     : null;
+  // Custom polygons clip the planking/seam/joist layer to the outline.
+  const clipId = `deckclip-${layout.deckId}`;
+  const clip = layout.polygon ? `url(#${clipId})` : undefined;
 
   return (
     <svg
@@ -58,7 +71,15 @@ export function DeckCanvas({ layout, endGap }: Props) {
       role="img"
       aria-label={`Plank layout for ${layout.label}`}
     >
-      {/* deck outline (L-shape = notched polygon) */}
+      {layout.polygon && (
+        <defs>
+          <clipPath id={clipId}>
+            <polygon points={outlinePts ?? ''} />
+          </clipPath>
+        </defs>
+      )}
+
+      {/* deck outline (L-shape = notched polygon; custom = arbitrary polygon) */}
       {outlinePts ? (
         <polygon points={outlinePts} fill="none" stroke="var(--line)" />
       ) : (
@@ -99,6 +120,9 @@ export function DeckCanvas({ layout, endGap }: Props) {
         );
       })}
 
+      {/* clipped layer: planks, edge overlays, joists and seams.
+          For a custom polygon this trims everything to the outline. */}
+      <g clipPath={clip}>
       {/* plank rows (everything except gaps) */}
       {planks.map((row) => {
         const y = foy + row.yStartMm * s;
@@ -107,8 +131,9 @@ export function DeckCanvas({ layout, endGap }: Props) {
         return (
           <g key={`r${row.index}`}>
             {row.segments.map((seg, i) => {
-              const x0 = seg.startMm;
-              const x1 = i < row.segments.length - 1 ? row.segments[i + 1].startMm : rowEnd;
+              // Custom shapes carry physical draw extents (incl. bevel overhang).
+              const x0 = seg.drawStartMm ?? seg.startMm;
+              const x1 = seg.drawEndMm ?? (i < row.segments.length - 1 ? row.segments[i + 1].startMm : rowEnd);
               const left = fox + x0 * s + (i === 0 ? 0 : seamGapPx / 2);
               const right = fox + x1 * s - (i === row.segments.length - 1 ? 0 : seamGapPx / 2);
               const segW = Math.max(0, right - left);
@@ -121,6 +146,7 @@ export function DeckCanvas({ layout, endGap }: Props) {
                     <title>
                       {seg.name} · {seg.lengthMm} mm · {seg.bays} bay{seg.bays === 1 ? '' : 's'} · stock {seg.barId}
                       {seg.reusedOffcut ? ' (offcut)' : ''}
+                      {seg.cuts?.length ? ` · bevel ${seg.cuts.map((c) => `${c.side} ${c.angleDeg}°`).join(', ')}` : ''}
                     </title>
                   </rect>
                   {showName && (
@@ -171,6 +197,7 @@ export function DeckCanvas({ layout, endGap }: Props) {
           <line key={`sm${row.index}-${i}`} x1={fox + sx * s} x2={fox + sx * s} y1={y + 0.5} y2={y + rh - 0.5} stroke="var(--seam)" strokeWidth={3.4} strokeLinecap="round" />
         ));
       })}
+      </g>
     </svg>
   );
 }

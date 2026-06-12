@@ -21,8 +21,10 @@ from one React/TypeScript codebase.
   max scatter; a seed you can step through, and a waste ↔ looks slider.
 - **Multiple decks**, per-deck board spacing with **auto-fit**, **no-seam** mode for
   short decks, and **edge handling** (rip / overhang / gap).
-- **Deck shapes** — plain rectangle or **L-shape** (a rectangular notch cut from any
-  corner); rows that meet the notch stop at its edge and seams stay on the joist grid.
+- **Deck shapes** — plain rectangle, **L-shape** (a rectangular notch cut from any
+  corner), or a **custom polygon** of N corner points; rows are clipped to the
+  outline (non-convex shapes split into multiple runs), seams stay on the joist
+  grid, and boundary planks get **angled (bevelled) end cuts** recorded in the cut list.
 - **Picture-frame borders** — perimeter rings with mitred or butt corners.
 - **Visual plan** — interactive SVG, full-screen **pinch-zoom**, and **PNG export**.
 - **Save/Load** projects as `.deck` files (native share sheet on Android).

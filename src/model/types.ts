@@ -46,10 +46,17 @@ export type BackingSpan =
 /** Overall deck outline. */
 export type DeckShape =
   | 'rect' // plain rectangle
-  | 'lshape'; // rectangle with a rectangular notch cut from one corner
+  | 'lshape' // rectangle with a rectangular notch cut from one corner
+  | 'custom'; // arbitrary polygon defined by corner coordinates
 
 /** Which corner of the bounding rectangle the L-shape notch is removed from. */
 export type NotchCorner = 'TL' | 'TR' | 'BL' | 'BR';
+
+/** A polygon corner for a custom deck shape (mm; bounding box defines the size). */
+export interface DeckPoint {
+  x: mm; // along the run (length) direction
+  y: mm; // across rows (width) direction
+}
 
 export interface Deck {
   id: string;
@@ -60,6 +67,7 @@ export interface Deck {
   notchLength: mm; // L-shape: notch extent along the run (length) direction
   notchWidth: mm; // L-shape: notch extent across the width direction
   notchCorner: NotchCorner; // L-shape: which corner is removed
+  points: DeckPoint[]; // custom: polygon corners (bounding box = deck size)
   spacing: mm; // backing-board (joist) spacing, centre-to-centre — per deck
   firstOffset: mm; // edge-board inset: centre of the edge backing boards, this far in from each edge
   noSeams: boolean; // force single full-length boards per row (no butt joints)
@@ -113,13 +121,24 @@ export interface Project {
 
 // ---------------- results ----------------
 
+/** An angled (bevelled) end cut where a plank meets a sloped polygon edge. */
+export interface AngledCut {
+  side: 'L' | 'R'; // which end of the plank is bevelled
+  longMm: mm; // length of the longer edge of the cut piece
+  shortMm: mm; // length of the shorter edge
+  angleDeg: mm; // bevel angle off square (0 = a straight cut)
+}
+
 export interface Segment {
   name: string; // board label, e.g. "A(3,2)" = deck A, row 3, 2nd plank in the row
   startMm: mm; // position of segment start along the row (0 = deck edge)
-  lengthMm: mm; // cut length of the plank
+  lengthMm: mm; // cut length of the plank (the longer edge if a bevelled end)
   bays: number; // number of joist bays spanned
   barId: string; // which physical stock bar it came from
   reusedOffcut: boolean; // cut from a reused offcut rather than a fresh bar
+  drawStartMm?: mm; // custom shapes: physical start incl. bevel overhang (for drawing)
+  drawEndMm?: mm; // custom shapes: physical end incl. bevel overhang
+  cuts?: AngledCut[]; // bevelled ends, if any (custom shapes)
 }
 
 /** What a row physically is, for the width-direction layout. */
@@ -171,6 +190,7 @@ export interface DeckLayout {
   fieldInsetMm: mm; // border depth: the planking field is inset this far on all sides
   joistSpanWhole: boolean; // joists drawn across the whole deck (true) or the field only (false)
   notch?: Notch; // L-shape: the removed corner rectangle, in deck coordinates
+  polygon?: DeckPoint[]; // custom shape: outline in deck coords (for outline + clip)
   borderBoards: BorderBoard[];
   joists: mm[]; // joist centre positions in DECK coordinates (for drawing)
   rows: Row[]; // field-local rows
