@@ -38,8 +38,10 @@ export type CornerStyle =
   | 'sides' // left & right run the full width; top & bottom butt between
   | 'staggered'; // alternate which runs long, ring by ring (woven look)
 
-/** With a border + 'extra' edge fit, which way the overhanging field board sits. */
-export type OverhangFrom = 'outside' | 'inside';
+/** Where the backing boards (joists) run when the deck has a border. */
+export type BackingSpan =
+  | 'field' // joists only under the planking field (inside the frame)
+  | 'whole'; // joists under the whole deck, including beneath the border
 
 export interface Deck {
   id: string;
@@ -51,7 +53,7 @@ export interface Deck {
   noSeams: boolean; // force single full-length boards per row (no butt joints)
   borderBoards: number; // picture-frame border: number of perimeter rings (0 = none)
   cornerStyle: CornerStyle; // how the border boards meet at the corners
-  overhangFrom: OverhangFrom; // with a border + 'extra' edge fit: which way the extra board overhangs
+  backingSpan: BackingSpan; // whether joists run only under the field or under the whole deck
 }
 
 export interface Gaps {
@@ -145,9 +147,9 @@ export interface DeckLayout {
   widthMm: mm;
   plankWidthMm: mm; // full board width, for drawing rips / overhangs
   fieldInsetMm: mm; // border depth: the planking field is inset this far on all sides
-  overhangFrom: OverhangFrom; // which way an 'extra' field board overhangs (for drawing)
+  joistSpanWhole: boolean; // joists drawn across the whole deck (true) or the field only (false)
   borderBoards: BorderBoard[];
-  joists: mm[]; // field-local joist positions (offset by fieldInsetMm when drawn)
+  joists: mm[]; // joist centre positions in DECK coordinates (for drawing)
   rows: Row[]; // field-local rows
   warnings: string[];
 }

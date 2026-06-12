@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Capacitor } from '@capacitor/core';
-import type { CornerStyle, Deck, OverhangFrom, Project, StaggerMode, WidthFit } from '../model/types';
+import type { BackingSpan, CornerStyle, Deck, Project, StaggerMode, WidthFit } from '../model/types';
 import { defaultProject } from '../model/defaults';
 import { optimize } from '../engine/optimize';
 import { saveFile } from '../platform/save';
@@ -30,7 +30,7 @@ function normalizeProject(data: Partial<Project>): Project {
   const deckBase = (i: number): Deck => ({
     id: `deck${i + 1}`, label: `Deck ${i + 1}`, length: 4000, width: 3000,
     spacing: 600, firstOffset: defaultProject.decks[0].firstOffset, noSeams: false, borderBoards: 0,
-    cornerStyle: 'mitered', overhangFrom: 'outside',
+    cornerStyle: 'mitered', backingSpan: 'whole',
   });
   const srcDecks = Array.isArray(data.decks) && data.decks.length ? data.decks : defaultProject.decks;
   const decks: Deck[] = srcDecks.map((d, i) => ({ ...deckBase(i), ...d }));
@@ -118,7 +118,7 @@ export function App() {
   const updateDeck = (i: number, p: Partial<Deck>) =>
     patch({ decks: project.decks.map((d, idx) => (idx === i ? { ...d, ...p } : d)) });
   const addDeck = () =>
-    patch({ decks: [...project.decks, { id: `deck${Date.now()}`, label: `Deck ${project.decks.length + 1}`, length: 4000, width: 3000, spacing: 600, firstOffset: defaultProject.decks[0].firstOffset, noSeams: false, borderBoards: 0, cornerStyle: 'mitered', overhangFrom: 'outside' }] });
+    patch({ decks: [...project.decks, { id: `deck${Date.now()}`, label: `Deck ${project.decks.length + 1}`, length: 4000, width: 3000, spacing: 600, firstOffset: defaultProject.decks[0].firstOffset, noSeams: false, borderBoards: 0, cornerStyle: 'mitered', backingSpan: 'whole' }] });
   const removeDeck = (i: number) => {
     if (!window.confirm(`Delete deck "${project.decks[i]?.label}"? This can't be undone.`)) return;
     patch({ decks: project.decks.filter((_, idx) => idx !== i) });
@@ -127,9 +127,12 @@ export function App() {
   const autoFitSpacing = (i: number) => {
     const d = project.decks[i];
     const target = d.spacing > 0 ? d.spacing : 600;
-    if (d.length <= 0) return;
-    const bays = Math.max(1, Math.ceil(d.length / target));
-    updateDeck(i, { spacing: Math.ceil(d.length / bays) });
+    // When the joists sit inside the frame, even-fit the FIELD length (deck minus border).
+    const bd = d.borderBoards > 0 ? d.borderBoards * (project.plank.width + project.gaps.sideGap) : 0;
+    const len = d.backingSpan === 'field' ? d.length - 2 * bd : d.length;
+    if (len <= 0) return;
+    const bays = Math.max(1, Math.ceil(len / target));
+    updateDeck(i, { spacing: Math.ceil(len / bays) });
   };
 
   const updateOnHand = (i: number, field: 'length' | 'quantity', v: number) =>
@@ -211,11 +214,11 @@ export function App() {
                 </select>
               </Field>
             )}
-            {d.borderBoards > 0 && project.widthFit === 'extra' && (
-              <Field label="Overhang from" hint="With a border and the 'Extra board' edge fit: 'outside' lets the extra field board overhang past the inner border edge; 'inside' sits it flush to the border and overhangs inward.">
-                <select value={d.overhangFrom} onChange={(e) => updateDeck(i, { overhangFrom: e.target.value as OverhangFrom })}>
-                  <option value="outside">Outside</option>
-                  <option value="inside">Inside border</option>
+            {d.borderBoards > 0 && (
+              <Field label="Backing boards" hint="Where the joists run: only under the planking field (inside the frame) or under the whole deck including beneath the border. With 'Inside frame', Auto-fit even spacing divides the field length, not the whole deck.">
+                <select value={d.backingSpan} onChange={(e) => updateDeck(i, { backingSpan: e.target.value as BackingSpan })}>
+                  <option value="whole">Under whole deck</option>
+                  <option value="field">Inside frame only</option>
                 </select>
               </Field>
             )}

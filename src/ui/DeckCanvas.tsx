@@ -1,4 +1,4 @@
-import type { DeckLayout, OverhangFrom, Row } from '../model/types';
+import type { DeckLayout, Row } from '../model/types';
 
 interface Props {
   layout: DeckLayout;
@@ -116,19 +116,21 @@ export function DeckCanvas({ layout, endGap }: Props) {
 
       {/* width-fit overlays: rip cut-off, extra overhang + edge, gap placeholder */}
       {layout.rows.map((row) => (
-        <EdgeOverlay key={`o${row.index}`} row={row} s={s} foy={foy} pw={pw} X0={fox} X1={fox + fieldL * s} fieldBottomY={fieldBottomY} overhangFrom={layout.overhangFrom} />
+        <EdgeOverlay key={`o${row.index}`} row={row} s={s} foy={foy} pw={pw} X0={fox} X1={fox + fieldL * s} fieldBottomY={fieldBottomY} />
       ))}
 
-      {/* backing boards (joists) — across the field area */}
+      {/* backing boards (joists) — in deck coords, across the whole deck or the field */}
       {layout.joists.map((j, i) => {
-        const x = fox + j * s;
+        const x = padX + j * s;
+        const jy1 = layout.joistSpanWhole ? padTop : foy;
+        const jy2 = layout.joistSpanWhole ? padTop + layout.widthMm * s : fieldBottomY;
         return (
           <g key={`j${i}`}>
-            <line x1={x} x2={x} y1={foy} y2={fieldBottomY} stroke="var(--joist)" strokeWidth={1.6} strokeDasharray="7 5" strokeOpacity={0.9}>
-              <title>Backing board @ {Math.round(j)} mm (field)</title>
+            <line x1={x} x2={x} y1={jy1} y2={jy2} stroke="var(--joist)" strokeWidth={1.6} strokeDasharray="7 5" strokeOpacity={0.9}>
+              <title>Backing board @ {Math.round(j)} mm</title>
             </line>
-            <circle cx={x} cy={foy} r={2.6} fill="var(--joist-pin)" />
-            <circle cx={x} cy={fieldBottomY} r={2.6} fill="var(--joist-pin)" />
+            <circle cx={x} cy={jy1} r={2.6} fill="var(--joist-pin)" />
+            <circle cx={x} cy={jy2} r={2.6} fill="var(--joist-pin)" />
           </g>
         );
       })}
@@ -146,9 +148,9 @@ export function DeckCanvas({ layout, endGap }: Props) {
 }
 
 function EdgeOverlay({
-  row, s, foy, pw, X0, X1, fieldBottomY, overhangFrom,
+  row, s, foy, pw, X0, X1, fieldBottomY,
 }: {
-  row: Row; s: number; foy: number; pw: number; X0: number; X1: number; fieldBottomY: number; overhangFrom: OverhangFrom;
+  row: Row; s: number; foy: number; pw: number; X0: number; X1: number; fieldBottomY: number;
 }) {
   const y = foy + row.yStartMm * s;
   const fadeFill = 'var(--muted)';
@@ -163,19 +165,6 @@ function EdgeOverlay({
     );
   }
   if (row.kind === 'extra') {
-    const overhang = (row.overhangMm ?? 0) * s;
-    if (overhangFrom === 'inside') {
-      // board sits flush to the field edge and overhangs inward — fade the inner strip
-      return (
-        <g>
-          <rect x={X0} y={y} width={X1 - X0} height={Math.max(0, overhang)} fill={fadeFill} fillOpacity={0.2}>
-            <title>Overhang ~{Math.round(row.overhangMm ?? 0)} mm inward (from inside the border)</title>
-          </rect>
-          <line x1={X0} x2={X1} y1={y + overhang} y2={y + overhang} stroke="var(--ink)" strokeWidth={1.4} strokeDasharray="5 3" />
-        </g>
-      );
-    }
-    // outward: board overhangs past the field edge
     const boardBottom = y + pw * s;
     return (
       <g>

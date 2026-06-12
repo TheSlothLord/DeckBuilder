@@ -67,9 +67,21 @@ export function optimize(project: Project): Result {
     }
     const field = bd > 0 ? { ...deck, length: round(deck.length - 2 * bd), width: round(deck.width - 2 * bd) } : deck;
 
-    const joists = joistPositions(field, backingBoardWidth);
-    const seams = legalSeams(field, backingBoardWidth);
-    const slots = rowSlots(field, plank.width, gaps, widthFit, deck.overhangFrom);
+    // Backing boards: under the whole deck, or only under the field (inside the frame).
+    // `joists` are centre positions in DECK coords (for drawing); `seams` are the
+    // field-local legal seam positions the planks may butt on.
+    const wholeSpan = deck.backingSpan === 'whole';
+    let joists: number[];
+    let seams: number[];
+    if (wholeSpan) {
+      joists = joistPositions(deck, backingBoardWidth);
+      seams = joists.filter((j) => j > bd + EPS && j < deck.length - bd - EPS).map((j) => round(j - bd));
+    } else {
+      const fieldJoists = joistPositions(field, backingBoardWidth);
+      joists = fieldJoists.map((j) => round(j + bd));
+      seams = legalSeams(field, backingBoardWidth);
+    }
+    const slots = rowSlots(field, plank.width, gaps, widthFit);
 
     // Friendly, deck-level diagnostics — computed BEFORE the expensive candidate
     // enumeration so a bad value (e.g. a tiny spacing) can't blow up the engine.
@@ -250,26 +262,35 @@ export function optimize(project: Project): Result {
           addMitred(F('B'), `${ring}B`, 'B', o);
           addMitred(F('L'), `${ring}L`, 'L', o);
           addMitred(F('R'), `${ring}R`, 'R', o);
+        } else if (deck.cornerStyle === 'staggered') {
+          // Pinwheel: each board butts the side of the next, rotating around — so all
+          // four are the same length on a square deck.
+          const longH = deck.length - 2 * o - pw;
+          const longV = deck.width - 2 * o - pw;
+          if (longH > 0 && longV > 0) {
+            addButt(F('T'), `${ring}T`, o, o, pw, longH, true);
+            addButt(F('R'), `${ring}R`, deck.length - o - pw, o, pw, longV, false);
+            addButt(F('B'), `${ring}B`, o + pw, deck.width - o - pw, pw, longH, true);
+            addButt(F('L'), `${ring}L`, o, o + pw, pw, longV, false);
+          }
+        } else if (deck.cornerStyle === 'topBottom') {
+          const longLen = deck.length - 2 * o;
+          const sideLen = deck.width - 2 * o - 2 * pw;
+          addButt(F('T'), `${ring}T`, o, o, pw, longLen, true);
+          addButt(F('B'), `${ring}B`, o, deck.width - o - pw, pw, longLen, true);
+          if (sideLen > 0) {
+            addButt(F('L'), `${ring}L`, o, o + pw, pw, sideLen, false);
+            addButt(F('R'), `${ring}R`, deck.length - o - pw, o + pw, pw, sideLen, false);
+          }
         } else {
-          const tbOuter = deck.cornerStyle === 'topBottom' || (deck.cornerStyle === 'staggered' && ring % 2 === 0);
-          if (tbOuter) {
-            const longLen = deck.length - 2 * o;
-            const sideLen = deck.width - 2 * o - 2 * pw;
-            addButt(F('T'), `${ring}T`, o, o, pw, longLen, true);
-            addButt(F('B'), `${ring}B`, o, deck.width - o - pw, pw, longLen, true);
-            if (sideLen > 0) {
-              addButt(F('L'), `${ring}L`, o, o + pw, pw, sideLen, false);
-              addButt(F('R'), `${ring}R`, deck.length - o - pw, o + pw, pw, sideLen, false);
-            }
-          } else {
-            const longLen = deck.width - 2 * o;
-            const midLen = deck.length - 2 * o - 2 * pw;
-            addButt(F('L'), `${ring}L`, o, o, pw, longLen, false);
-            addButt(F('R'), `${ring}R`, deck.length - o - pw, o, pw, longLen, false);
-            if (midLen > 0) {
-              addButt(F('T'), `${ring}T`, o + pw, o, pw, midLen, true);
-              addButt(F('B'), `${ring}B`, o + pw, deck.width - o - pw, pw, midLen, true);
-            }
+          // 'sides' — left & right run full width
+          const longLen = deck.width - 2 * o;
+          const midLen = deck.length - 2 * o - 2 * pw;
+          addButt(F('L'), `${ring}L`, o, o, pw, longLen, false);
+          addButt(F('R'), `${ring}R`, deck.length - o - pw, o, pw, longLen, false);
+          if (midLen > 0) {
+            addButt(F('T'), `${ring}T`, o + pw, o, pw, midLen, true);
+            addButt(F('B'), `${ring}B`, o + pw, deck.width - o - pw, pw, midLen, true);
           }
         }
       }
@@ -282,7 +303,7 @@ export function optimize(project: Project): Result {
       widthMm: deck.width,
       plankWidthMm: plank.width,
       fieldInsetMm: bd,
-      overhangFrom: deck.overhangFrom,
+      joistSpanWhole: wholeSpan,
       borderBoards,
       joists,
       rows,
