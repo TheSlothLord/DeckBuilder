@@ -56,43 +56,36 @@ export function BarView({ bar, cut, highlight }: Props) {
           const px = X(seg.x0);
           const pw = Math.max(0, (seg.x1 - seg.x0) * s);
           const top = PAD;
-          const bot = PAD + BAR_H;
           const cx = px + pw / 2;
           const ink = seg.hot ? '#1a1206' : 'var(--plank-text)';
           const fillC = seg.hot ? 'var(--accent)' : 'var(--plank)';
           const name = seg.usedIn.split(' ·')[0].split(' bevel')[0];
           const showName = pw > 46;
 
-          // Bevelled piece: long edge on top, short on bottom; each bevelled end
-          // slants in proportion to its cut angle. Makes the angle and the
-          // measured (long) edge explicit.
+          // Bevelled piece: draw its true outline (trapezoid OR sheared
+          // parallelogram), scaled along the bar; tag each angled end.
           const bevels = seg.cuts ?? [];
-          if (bevels.length > 0) {
-            const long = seg.lengthMm;
-            const short = Math.min(long, ...bevels.map((c) => c.shortMm));
-            const delta = Math.max(0, long - short);
+          if (seg.cutShape && seg.cutShape.length >= 3) {
+            const W = Math.max(...seg.cutShape.map((p) => p.y)) || 1;
+            const yScale = BAR_H / W;
+            const pts = seg.cutShape.map((p) => `${X(seg.x0) + p.x * s},${top + p.y * yScale}`).join(' ');
             const cutL = bevels.find((c) => c.side === 'L');
             const cutR = bevels.find((c) => c.side === 'R');
-            const tL = cutL ? Math.tan((cutL.angleDeg * Math.PI) / 180) : 0;
-            const tR = cutR ? Math.tan((cutR.angleDeg * Math.PI) / 180) : 0;
-            const tsum = tL + tR || 1;
-            const cbL = (delta * tL) / tsum; // mm cut back at the left, on the short (bottom) edge
-            const cbR = (delta * tR) / tsum;
-            const pts = `${X(seg.x0)},${top} ${X(seg.x1)},${top} ${X(seg.x1 - cbR)},${bot} ${X(seg.x0 + cbL)},${bot}`;
+            const long = bevels[0]?.longMm;
+            const short = bevels[0]?.shortMm;
+            const sizeLabel = long != null && short != null && long !== short ? `long ${long} / short ${short}` : `${seg.lengthMm} mm`;
             const angleText = bevels.map((c) => `${c.side} ${c.angleDeg}°`).join(', ');
             return (
               <g key={i}>
                 <polygon points={pts} fill={fillC} stroke="var(--plank-edge)" strokeWidth={seg.hot ? 1.4 : 0.6}>
-                  <title>{seg.usedIn} · long {long} mm / short {short} mm · bevel {angleText}</title>
+                  <title>{seg.usedIn} · {seg.lengthMm} mm{angleText ? ` · bevel ${angleText}` : ''}</title>
                 </polygon>
                 {showName && (
                   <>
-                    <text x={cx} y={top + 13} fontSize={11} fill={ink} textAnchor="middle" pointerEvents="none">{name}</text>
-                    <text x={cx} y={top + 26} fontSize={9.5} fill={ink} textAnchor="middle" pointerEvents="none" opacity={0.9}>long {long}</text>
-                    <text x={(X(seg.x0 + cbL) + X(seg.x1 - cbR)) / 2} y={bot - 6} fontSize={9.5} fill={ink} textAnchor="middle" pointerEvents="none" opacity={0.9}>short {short}</text>
+                    <text x={cx} y={top + BAR_H / 2 - 4} fontSize={11} fill={ink} textAnchor="middle" dominantBaseline="central" pointerEvents="none">{name}</text>
+                    <text x={cx} y={top + BAR_H / 2 + 11} fontSize={9.5} fill={ink} textAnchor="middle" dominantBaseline="central" pointerEvents="none" opacity={0.9}>{sizeLabel}</text>
                   </>
                 )}
-                {/* angle tag at each bevelled end */}
                 {cutL && <text x={X(seg.x0) + 2} y={top - 3} fontSize={9.5} fill="var(--accent)" textAnchor="start" pointerEvents="none">∡{cutL.angleDeg}°</text>}
                 {cutR && <text x={X(seg.x1) - 2} y={top - 3} fontSize={9.5} fill="var(--accent)" textAnchor="end" pointerEvents="none">∡{cutR.angleDeg}°</text>}
                 <rect x={X(seg.x1)} y={top} width={Math.max(1, cut.kerf * s)} height={BAR_H} fill="var(--seam)">

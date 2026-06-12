@@ -199,9 +199,10 @@ export interface DeckLayout {
 }
 
 export interface CutPiece {
-  lengthMm: mm; // the cut length (the longer edge if a bevelled end)
+  lengthMm: mm; // the cut length (bounding extent along the cut, for stock packing)
   usedIn: string; // human label e.g. "Patio · row 3 · seg 2"
   cuts?: AngledCut[]; // bevelled ends, for the cut-plan visualisation
+  cutShape?: DeckPoint[]; // true outline, normalised: x along the cut (0..length), y across (0..width)
 }
 
 export interface CutInstruction {

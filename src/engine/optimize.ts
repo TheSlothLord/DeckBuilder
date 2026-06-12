@@ -7,6 +7,7 @@ import type {
   BorderBoard,
   CutInstruction,
   DeckLayout,
+  DeckPoint,
   Project,
   Result,
   Row,
@@ -163,7 +164,12 @@ export function optimize(project: Project): Result {
           const segCuts: AngledCut[] = [];
           if (isFirst && angledLeft) segCuts.push({ side: 'L', longMm, shortMm, angleDeg: round((Math.atan2(Math.abs(u.leftTop - u.leftBot), u.bandH) * 180) / Math.PI) });
           if (isLast && angledRight) segCuts.push({ side: 'R', longMm, shortMm, angleDeg: round((Math.atan2(Math.abs(u.rightTop - u.rightBot), u.bandH) * 180) / Math.PI) });
-          const lengthMm = segCuts.length ? longMm : round(endPos - startPos);
+          // True outline (incl. shear) for the cut plan, when an end is bevelled.
+          const yTop = u.slot.yStartMm;
+          const yBot = yTop + u.bandH;
+          const info = segCuts.length ? quadCutInfo([[lTop, yTop], [rTop, yTop], [rBot, yBot], [lBot, yBot]]) : null;
+          const lengthMm = info ? info.lengthMm : round(endPos - startPos);
+          const cutShape = info ? info.shape : undefined;
           const bays = deck.spacing > 0 ? Math.max(1, Math.round((endPos - startPos) / deck.spacing)) : 1;
           const name = `${deckLetter}(${u.slotIdx + 1},${segBase + i + 1})`;
           const seg: Segment = { name, startMm: round(startPos), lengthMm, bays, barId: '', reusedOffcut: false, drawStartMm: round(drawStart), drawEndMm: round(drawEnd), cuts: segCuts.length ? segCuts : undefined };
@@ -173,7 +179,7 @@ export function optimize(project: Project): Result {
           const bevel = segCuts.length
             ? ` · bevel ${segCuts.map((c) => `${c.side} ${c.angleDeg}°`).join(', ')} (short ${shortMm} mm)`
             : '';
-          demand.push({ id, length: lengthMm, label: name + bevel, cuts: segCuts.length ? segCuts : undefined });
+          demand.push({ id, length: lengthMm, label: name + bevel, cuts: segCuts.length ? segCuts : undefined, cutShape });
           segIndex.set(id, seg);
         }
         segBaseBySlot.set(u.slotIdx, segBase + last + 1);
@@ -213,11 +219,13 @@ export function optimize(project: Project): Result {
               const pts = q.map((p) => `${round(p.x)},${round(p.y)}`).join(' ');
               const base = `${deckLetter}·F${ring + 1}.${i + 1}`;
               const name = pieces.length > 1 ? `${base}-${pi + 1}` : base;
-              const bb: BorderBoard = { name, lengthMm: round(plen), x: round(bx), y: round(by), w: round(Math.max(...xs) - bx), h: round(Math.max(...ys) - by), points: pts, barId: '', reusedOffcut: false };
+              const info = quadCutInfo(q.map((p) => [p.x, p.y]));
+              const bevelled = info != null && info.cuts.length > 0;
+              const lengthMm = bevelled ? info!.lengthMm : round(plen);
+              const bb: BorderBoard = { name, lengthMm, x: round(bx), y: round(by), w: round(Math.max(...xs) - bx), h: round(Math.max(...ys) - by), points: pts, barId: '', reusedOffcut: false };
               borderBoards.push(bb);
               const idk = `${deck.id}#F#${ring}e${i}#${pi}`;
-              const cuts = cutsFromQuad(pts);
-              demand.push({ id: idk, length: bb.lengthMm, label: name, cuts: cuts.length ? cuts : undefined });
+              demand.push({ id: idk, length: lengthMm, label: name, cuts: bevelled ? info!.cuts : undefined, cutShape: bevelled ? info!.shape : undefined });
               borderIndex.set(idk, bb);
               cum += plen + gaps.endGap;
             });
@@ -441,10 +449,12 @@ export function optimize(project: Project): Result {
         return Array.from({ length: k }, () => round((len - (k - 1) * gaps.endGap) / k));
       };
       const emit = (name: string, idKey: string, pi: number, len: number, x: number, y: number, w: number, h: number, points?: string) => {
-        const bb: BorderBoard = { name, lengthMm: round(len), x: round(x), y: round(y), w: round(w), h: round(h), points, barId: '', reusedOffcut: false };
+        const info = points ? quadCutInfo(parsePts(points)) : null;
+        const bevelled = info != null && info.cuts.length > 0;
+        const lengthMm = bevelled ? info!.lengthMm : round(len); // bounding extent for sheared boards
+        const bb: BorderBoard = { name, lengthMm, x: round(x), y: round(y), w: round(w), h: round(h), points, barId: '', reusedOffcut: false };
         borderBoards.push(bb);
-        const cuts = points ? cutsFromQuad(points) : undefined;
-        demand.push({ id: `${deck.id}#F#${idKey}#${pi}`, length: bb.lengthMm, label: name, cuts: cuts && cuts.length ? cuts : undefined });
+        demand.push({ id: `${deck.id}#F#${idKey}#${pi}`, length: lengthMm, label: name, cuts: bevelled ? info!.cuts : undefined, cutShape: bevelled ? info!.shape : undefined });
         borderIndex.set(`${deck.id}#F#${idKey}#${pi}`, bb);
       };
       // Butt-jointed side: a straight run split into pieces.
@@ -763,13 +773,14 @@ function pointInPoly(x: number, y: number, verts: Array<[number, number]>): bool
 }
 
 /**
- * Derive bevelled-end cut data from a border board's drawn quad, so the cut plan
- * can show mitred ends as angled (not square). Square ends (butt joints / interior
- * splits) deviate <1° from perpendicular and produce no cut.
+ * Describe a board's drawn quad for the cut plan: its true outline normalised so
+ * x runs along the cut (0..length) and y across the board (0..width), the bounding
+ * cut length, and the bevelled-end cuts. Handles trapezoids AND sheared
+ * parallelograms (e.g. the boards at an L-shape's concave corner). Square ends
+ * (butt joints / interior splits) deviate <1° from perpendicular and yield no cut.
  */
-function cutsFromQuad(pointsStr: string): AngledCut[] {
-  const P = pointsStr.trim().split(/\s+/).map((s) => s.split(',').map(Number));
-  if (P.length < 4) return [];
+function quadCutInfo(P: number[][]): { shape: DeckPoint[]; lengthMm: number; cuts: AngledCut[] } | null {
+  if (P.length < 4) return null;
   const e = [0, 1, 2, 3].map((i) => [P[(i + 1) % 4][0] - P[i][0], P[(i + 1) % 4][1] - P[i][1]] as [number, number]);
   const len = e.map((v) => Math.hypot(v[0], v[1]));
   const longIsE0 = len[0] + len[2] >= len[1] + len[3]; // which opposite pair runs the board's length
@@ -779,19 +790,32 @@ function cutsFromQuad(pointsStr: string): AngledCut[] {
   const shortMm = round(Math.min(len[longIdx[0]], len[longIdx[1]]));
   const ld = e[longIdx[0]];
   const llen = Math.hypot(ld[0], ld[1]) || 1;
-  const ldir = [ld[0] / llen, ld[1] / llen];
+  const along = [ld[0] / llen, ld[1] / llen];
+  const across = [-along[1], along[0]];
+  // Project every vertex onto the along/across axes, then shift to a 0-based frame.
+  const proj = P.map((p) => [(p[0] - P[0][0]) * along[0] + (p[1] - P[0][1]) * along[1], (p[0] - P[0][0]) * across[0] + (p[1] - P[0][1]) * across[1]]);
+  const minA = Math.min(...proj.map((q) => q[0]));
+  const maxA = Math.max(...proj.map((q) => q[0]));
+  const minC = Math.min(...proj.map((q) => q[1]));
+  const shape = proj.map((q) => ({ x: round(q[0] - minA), y: round(q[1] - minC) }));
   const found: { proj: number; angleDeg: number }[] = [];
   for (const i of endIdx) {
     const v = e[i];
     const vlen = Math.hypot(v[0], v[1]) || 1;
-    const dot = Math.abs((v[0] * ldir[0] + v[1] * ldir[1]) / vlen);
+    const dot = Math.abs((v[0] * along[0] + v[1] * along[1]) / vlen);
     const off = round(90 - (Math.acos(Math.min(1, dot)) * 180) / Math.PI); // 0 = square, >0 = mitre
     if (off < 1) continue;
     const mid = [(P[i][0] + P[(i + 1) % 4][0]) / 2, (P[i][1] + P[(i + 1) % 4][1]) / 2];
-    found.push({ proj: mid[0] * ldir[0] + mid[1] * ldir[1], angleDeg: off });
+    found.push({ proj: mid[0] * along[0] + mid[1] * along[1], angleDeg: off });
   }
   found.sort((a, b) => a.proj - b.proj);
-  return found.map((c, i) => ({ side: i === 0 ? 'L' : 'R', longMm, shortMm, angleDeg: c.angleDeg }));
+  const cuts: AngledCut[] = found.map((c, i) => ({ side: i === 0 ? 'L' : 'R', longMm, shortMm, angleDeg: c.angleDeg }));
+  return { shape, lengthMm: round(maxA - minA), cuts };
+}
+
+/** Parse an SVG points string ("x,y x,y …") into number pairs. */
+function parsePts(s: string): number[][] {
+  return s.trim().split(/\s+/).map((p) => p.split(',').map(Number));
 }
 
 /** Deck index → spreadsheet-style letter: 0→A, 1→B, … 25→Z, 26→AA. */
