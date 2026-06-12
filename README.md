@@ -33,13 +33,64 @@ from one React/TypeScript codebase.
 - **Update check** — on launch the app compares its version against the latest
   GitHub release and shows a banner linking to the download when a newer one exists.
 
+## Deck shapes
+
+![Rectangle, L-shape and custom polygon decks](docs/images/deck-shapes.svg)
+
+Pick a shape from the **Shape** dropdown at the top of each deck:
+
+- **Rectangle** — enter the length (the run direction the planks follow) and the width.
+- **L-shape** — a rectangle with a rectangular **notch** removed from a corner you
+  choose; set the notch length and width. Rows that meet the notch stop at its edge,
+  and seams still land on the joist grid.
+- **Custom polygon** — any outline given as a list of **(x, y) corner points**, edited
+  in a popup. Planks are clipped to the outline; **non-convex** shapes split a row
+  into several runs, and a plank meeting a sloped edge gets an **angled (bevelled)
+  end cut** recorded in the cut list.
+
+The bounding box sets the deck size — `x` runs along the planks, `y` across the rows.
+
+## Borders
+
+![A mitred picture-frame border](docs/images/borders.svg)
+
+Add a **picture-frame border** of N rings around the perimeter. The planking field
+shrinks to fit inside it, and the frame follows the **full outline** — including an
+L-shape's notch corner or a custom polygon's edges. Corner styles:
+
+- **Mitered** — 45° mitre cuts (general angles on a custom polygon).
+- **Butt** — top/bottom long, sides long, or staggered (alternating ring by ring).
+
+You also choose whether the **backing boards** run under the whole deck or only under
+the field inside the frame. (Custom-polygon borders are always mitred.)
+
+## Seams, joists & edge fit
+
+Every butt joint (**seam**) lands on a **backing board** (joist) — the dashed blue
+lines. Five **stagger patterns** control how seams scatter between rows (true random,
+random-with-rules, jittered brick, staggered, max scatter), with a **seed** you can
+step through and a **waste ↔ looks** slider; a **min-piece** rule avoids stubby
+offcuts. The leftover strip at the far edge is handled by the **edge fit** — rip a
+board to width, add an overhanging board, or leave a gap.
+
+## Cut plans & inventory
+
+![A stock plank cut plan](docs/images/cut-plan.svg)
+
+DeckBuilder packs every piece into stock planks (1-D cutting-stock with saw **kerf**
+and **offcut reuse**), drawing from your **on-hand inventory first** and then listing
+exactly what to **buy** for the shortfall. Click any cut-list row — or a plank in the
+plan — to see how that stock plank is cut: each piece in order, the saw kerf between
+them, and the trailing offcut/scrap. Bevelled ends show the **cut angle** and which
+edge the length measures (the long edge). Every results table sorts by any column.
+
 ## Download
 
 Grab the latest packaged builds from the [**Releases**](../../releases) page:
 
 | Platform | File |
 |---|---|
-| Android 15 | `DeckBuilder.apk` (sideload) |
+| Android 15 | `DeckBuilder-vX.Y.Z.apk` (sideload) |
 | Windows | `DeckBuilder-<version>-win-x64.zip` (unzip → run `DeckBuilder.exe`) |
 
 See [DESIGN.md](DESIGN.md) for the full design (model, algorithm, math).
@@ -128,8 +179,7 @@ Studio (`npx cap open android`) for a release/Play-Store (signed AAB) build.
 
 ## Run it (dev)
 
-Requires **Node 20+** (not installed on the build machine — install from
-<https://nodejs.org> first).
+Requires **Node 22+** (install from <https://nodejs.org> if you don't have it).
 
 ```bash
 npm install
@@ -157,8 +207,8 @@ npm run typecheck
 
 ```
 src/model/      types + defaults
-src/engine/     rng · grid · candidates · stagger · cutstock · optimize  (pure, testable)
-src/ui/         App (inputs) · DeckCanvas (SVG plan) · ZoomView · Results
+src/engine/     rng · grid · candidates · stagger · cutstock · polygon · optimize  (pure, testable)
+src/ui/         App (inputs) · DeckCanvas (SVG plan) · ZoomView · Results · BarView (cut plan)
 src/platform/   save (native share sheet / browser download)
 electron/       desktop main process          android/   Capacitor project
 ```
@@ -176,5 +226,8 @@ git push --follow-tags   # triggers the release build
 
 ## Status
 
-MVP. Engine runs inline; Stage B is greedy + rules. Next: simulated annealing in a
-Web Worker, and signed release builds (see DESIGN.md §9).
+Actively developed. Rectangle / L-shape / custom-polygon decks, picture-frame
+borders, five stagger patterns, inventory-first cut optimization, and an
+interactive per-plank cut plan all ship today. The engine runs inline and Stage B is
+greedy + rules; next up is simulated annealing in a Web Worker and signed release
+builds (see DESIGN.md §9).

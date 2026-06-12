@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="150" viewBox="0 0 660 150" role="img" aria-label="Cut plan for one stock plank">
+  <rect x="0" y="0" width="660" height="150" fill="#1e1c17"/>
+  <text x="20" y="24" fill="#ece7da" font-family="system-ui,sans-serif" font-size="13" font-weight="600">Cut plan — stock S1 · 4800 mm · kerf 3 mm · offcut 470 mm</text>
+
+  <!-- stock outline -->
+  <rect x="20" y="40" width="600" height="56" rx="2" fill="none" stroke="#36322a"/>
+
+  <!-- piece 1 (square) -->
+  <rect x="20" y="40" width="176" height="56" rx="2" fill="#a07f4f" stroke="#5a4628" stroke-width="0.8"/>
+  <text x="108" y="64" fill="#3a2a14" font-family="system-ui,sans-serif" font-size="11" text-anchor="middle">A(1,1)</text>
+  <text x="108" y="78" fill="#3a2a14" font-family="system-ui,sans-serif" font-size="10" text-anchor="middle">2400 mm</text>
+  <rect x="196" y="40" width="4" height="56" fill="#ff2b2b"/>
+
+  <!-- piece 2 (square) -->
+  <rect x="200" y="40" width="150" height="56" rx="2" fill="#a07f4f" stroke="#5a4628" stroke-width="0.8"/>
+  <text x="275" y="64" fill="#3a2a14" font-family="system-ui,sans-serif" font-size="11" text-anchor="middle">A(1,2)</text>
+  <text x="275" y="78" fill="#3a2a14" font-family="system-ui,sans-serif" font-size="10" text-anchor="middle">1800 mm</text>
+  <rect x="350" y="40" width="4" height="56" fill="#ff2b2b"/>
+
+  <!-- piece 3 (bevelled end) -->
+  <polygon points="354,40 516,40 516,96 374,96" fill="#a07f4f" stroke="#5a4628" stroke-width="0.8"/>
+  <text x="445" y="64" fill="#3a2a14" font-family="system-ui,sans-serif" font-size="11" text-anchor="middle">A(2,1)</text>
+  <text x="445" y="78" fill="#3a2a14" font-family="system-ui,sans-serif" font-size="9" text-anchor="middle">long 1950 / short 1750</text>
+  <text x="356" y="35" fill="#e8782f" font-family="system-ui,sans-serif" font-size="10">&#8737;45&#176;</text>
+  <rect x="516" y="40" width="4" height="56" fill="#ff2b2b"/>
+
+  <!-- trailing offcut -->
+  <rect x="520" y="40" width="100" height="56" fill="#856a3f" fill-opacity="0.5" stroke="#9a9483" stroke-opacity="0.6" stroke-dasharray="4 3" stroke-width="0.8"/>
+  <text x="570" y="71" fill="#9a9483" font-family="system-ui,sans-serif" font-size="10" text-anchor="middle">offcut</text>
+
+  <!-- legend -->
+  <g font-family="system-ui,sans-serif" font-size="11" fill="#9a9483">
+    <rect x="20" y="120" width="12" height="12" rx="2" fill="#a07f4f"/><text x="38" y="130">cut piece</text>
+    <rect x="120" y="120" width="4" height="12" fill="#ff2b2b"/><text x="130" y="130">saw kerf</text>
+    <rect x="210" y="120" width="12" height="12" fill="#856a3f" fill-opacity="0.5"/><text x="228" y="130">offcut / scrap</text>
+    <text x="330" y="130" fill="#e8782f">&#8737;</text><text x="344" y="130">bevel angle (length = long edge)</text>
+  </g>
+</svg>

@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="740" height="200" viewBox="0 0 740 200" role="img" aria-label="Deck shapes: rectangle, L-shape, custom polygon">
+  <rect x="0" y="0" width="740" height="200" fill="#1e1c17"/>
+  <defs>
+    <clipPath id="lclip"><polygon points="270,20 410,20 410,74 470,74 470,150 270,150"/></clipPath>
+    <clipPath id="cclip"><polygon points="524,34 716,20 706,150 540,150"/></clipPath>
+  </defs>
+
+  <!-- Rectangle -->
+  <g>
+    <rect x="20" y="20" width="200" height="130" fill="#a07f4f" stroke="#5a4628" stroke-width="1.5"/>
+    <g stroke="#5a4628" stroke-width="1.2">
+      <line x1="20" y1="46" x2="220" y2="46"/><line x1="20" y1="72" x2="220" y2="72"/>
+      <line x1="20" y1="98" x2="220" y2="98"/><line x1="20" y1="124" x2="220" y2="124"/>
+    </g>
+    <g stroke="#79b6c9" stroke-width="1.4" stroke-dasharray="6 4" stroke-opacity="0.9">
+      <line x1="86" y1="20" x2="86" y2="150"/><line x1="153" y1="20" x2="153" y2="150"/>
+    </g>
+    <line x1="86" y1="46" x2="86" y2="72" stroke="#ff2b2b" stroke-width="3" stroke-linecap="round"/>
+    <line x1="153" y1="98" x2="153" y2="124" stroke="#ff2b2b" stroke-width="3" stroke-linecap="round"/>
+    <text x="120" y="178" fill="#ece7da" font-family="system-ui,sans-serif" font-size="14" font-weight="600" text-anchor="middle">Rectangle</text>
+  </g>
+
+  <!-- L-shape -->
+  <g>
+    <polygon points="270,20 410,20 410,74 470,74 470,150 270,150" fill="#a07f4f" stroke="#5a4628" stroke-width="1.5"/>
+    <g clip-path="url(#lclip)" stroke="#5a4628" stroke-width="1.2">
+      <line x1="270" y1="46" x2="470" y2="46"/><line x1="270" y1="72" x2="470" y2="72"/>
+      <line x1="270" y1="98" x2="470" y2="98"/><line x1="270" y1="124" x2="470" y2="124"/>
+    </g>
+    <g clip-path="url(#lclip)" stroke="#79b6c9" stroke-width="1.4" stroke-dasharray="6 4" stroke-opacity="0.9">
+      <line x1="336" y1="20" x2="336" y2="150"/><line x1="430" y1="20" x2="430" y2="150"/>
+    </g>
+    <text x="370" y="178" fill="#ece7da" font-family="system-ui,sans-serif" font-size="14" font-weight="600" text-anchor="middle">L-shape</text>
+  </g>
+
+  <!-- Custom polygon -->
+  <g>
+    <polygon points="524,34 716,20 706,150 540,150" fill="#a07f4f" stroke="#5a4628" stroke-width="1.5"/>
+    <g clip-path="url(#cclip)" stroke="#5a4628" stroke-width="1.2">
+      <line x1="520" y1="46" x2="720" y2="46"/><line x1="520" y1="72" x2="720" y2="72"/>
+      <line x1="520" y1="98" x2="720" y2="98"/><line x1="520" y1="124" x2="720" y2="124"/>
+    </g>
+    <g clip-path="url(#cclip)" stroke="#79b6c9" stroke-width="1.4" stroke-dasharray="6 4" stroke-opacity="0.9">
+      <line x1="590" y1="20" x2="590" y2="150"/><line x1="656" y1="20" x2="656" y2="150"/>
+    </g>
+    <text x="624" y="178" fill="#ece7da" font-family="system-ui,sans-serif" font-size="14" font-weight="600" text-anchor="middle">Custom polygon</text>
+  </g>
+</svg>

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="380" height="290" viewBox="0 0 380 290" role="img" aria-label="Mitred picture-frame border around a deck">
+  <rect x="0" y="0" width="380" height="290" fill="#1e1c17"/>
+  <defs><clipPath id="fieldclip"><rect x="46" y="46" width="268" height="168"/></clipPath></defs>
+
+  <!-- mitred frame boards (45° corners) -->
+  <g fill="#856a3f" stroke="#5a4628" stroke-width="1.2">
+    <polygon points="20,20 340,20 314,46 46,46"/>
+    <polygon points="20,240 340,240 314,214 46,214"/>
+    <polygon points="20,20 46,46 46,214 20,240"/>
+    <polygon points="340,20 314,46 314,214 340,240"/>
+  </g>
+
+  <!-- inner planking field -->
+  <rect x="46" y="46" width="268" height="168" fill="#a07f4f" stroke="#5a4628" stroke-width="1"/>
+  <g clip-path="url(#fieldclip)">
+    <g stroke="#5a4628" stroke-width="1.1">
+      <line x1="46" y1="73" x2="314" y2="73"/><line x1="46" y1="100" x2="314" y2="100"/>
+      <line x1="46" y1="127" x2="314" y2="127"/><line x1="46" y1="154" x2="314" y2="154"/>
+      <line x1="46" y1="181" x2="314" y2="181"/>
+    </g>
+    <g stroke="#79b6c9" stroke-width="1.4" stroke-dasharray="6 4" stroke-opacity="0.9">
+      <line x1="135" y1="46" x2="135" y2="214"/><line x1="225" y1="46" x2="225" y2="214"/>
+    </g>
+    <line x1="135" y1="73" x2="135" y2="100" stroke="#ff2b2b" stroke-width="3" stroke-linecap="round"/>
+    <line x1="225" y1="127" x2="225" y2="154" stroke="#ff2b2b" stroke-width="3" stroke-linecap="round"/>
+  </g>
+
+  <!-- mitre corner callout -->
+  <line x1="20" y1="20" x2="46" y2="46" stroke="#e8782f" stroke-width="1.6"/>
+  <text x="190" y="268" fill="#ece7da" font-family="system-ui,sans-serif" font-size="14" font-weight="600" text-anchor="middle">Mitred picture-frame border (45° corners)</text>
+</svg>
