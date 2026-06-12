@@ -24,6 +24,6 @@ export const defaultProject: Project = {
   widthFit: 'rip',
   backingBoardWidth: 48,
   decks: [
-    { id: 'deck1', label: 'Patio', length: 6000, width: 4000, spacing: 600, firstOffset: 24, noSeams: false, borderBoards: 0 },
+    { id: 'deck1', label: 'Patio', length: 6000, width: 4000, spacing: 600, firstOffset: 24, noSeams: false, borderBoards: 0, cornerStyle: 'mitered', overhangFrom: 'outside' },
   ],
 };

@@ -1,4 +1,4 @@
-import type { DeckLayout, Row } from '../model/types';
+import type { DeckLayout, OverhangFrom, Row } from '../model/types';
 
 interface Props {
   layout: DeckLayout;
@@ -44,7 +44,7 @@ export function DeckCanvas({ layout, endGap }: Props) {
       {/* deck outline */}
       <rect x={padX} y={padTop} width={layout.lengthMm * s} height={layout.widthMm * s} fill="none" stroke="var(--line)" />
 
-      {/* perimeter border boards */}
+      {/* perimeter border boards (mitred = polygon, butt = rect) */}
       {layout.borderBoards.map((bb, i) => {
         const x = padX + bb.x * s;
         const y = padTop + bb.y * s;
@@ -56,12 +56,18 @@ export function DeckCanvas({ layout, endGap }: Props) {
         const showName = thin > 9 && Math.max(bw, bh) > bb.name.length * fs * 0.62;
         const cx = x + bw / 2;
         const cy = y + bh / 2;
+        const fill = bb.reusedOffcut ? 'var(--plank-alt)' : 'var(--plank)';
+        const title = <title>{bb.name} (border) · {bb.lengthMm} mm · stock {bb.barId}{bb.reusedOffcut ? ' (offcut)' : ''}</title>;
+        const ptsPx = bb.points
+          ? bb.points.split(' ').map((p) => { const [mx, my] = p.split(',').map(Number); return `${padX + mx * s},${padTop + my * s}`; }).join(' ')
+          : null;
         return (
           <g key={`bb${i}`}>
-            <rect x={x} y={y} width={bw} height={bh} rx={1}
-              fill={bb.reusedOffcut ? 'var(--plank-alt)' : 'var(--plank)'} stroke="var(--plank-edge)" strokeWidth={0.6}>
-              <title>{bb.name} (border) · {bb.lengthMm} mm · stock {bb.barId}{bb.reusedOffcut ? ' (offcut)' : ''}</title>
-            </rect>
+            {ptsPx ? (
+              <polygon points={ptsPx} fill={fill} stroke="var(--plank-edge)" strokeWidth={0.6}>{title}</polygon>
+            ) : (
+              <rect x={x} y={y} width={bw} height={bh} rx={1} fill={fill} stroke="var(--plank-edge)" strokeWidth={0.6}>{title}</rect>
+            )}
             {showName && (
               <text x={cx} y={cy} fontSize={fs} fill="var(--plank-text)" textAnchor="middle" dominantBaseline="central"
                 pointerEvents="none" transform={vertical ? `rotate(-90 ${cx} ${cy})` : undefined}>
@@ -110,7 +116,7 @@ export function DeckCanvas({ layout, endGap }: Props) {
 
       {/* width-fit overlays: rip cut-off, extra overhang + edge, gap placeholder */}
       {layout.rows.map((row) => (
-        <EdgeOverlay key={`o${row.index}`} row={row} s={s} foy={foy} pw={pw} X0={fox} X1={fox + fieldL * s} fieldBottomY={fieldBottomY} />
+        <EdgeOverlay key={`o${row.index}`} row={row} s={s} foy={foy} pw={pw} X0={fox} X1={fox + fieldL * s} fieldBottomY={fieldBottomY} overhangFrom={layout.overhangFrom} />
       ))}
 
       {/* backing boards (joists) — across the field area */}
@@ -140,9 +146,9 @@ export function DeckCanvas({ layout, endGap }: Props) {
 }
 
 function EdgeOverlay({
-  row, s, foy, pw, X0, X1, fieldBottomY,
+  row, s, foy, pw, X0, X1, fieldBottomY, overhangFrom,
 }: {
-  row: Row; s: number; foy: number; pw: number; X0: number; X1: number; fieldBottomY: number;
+  row: Row; s: number; foy: number; pw: number; X0: number; X1: number; fieldBottomY: number; overhangFrom: OverhangFrom;
 }) {
   const y = foy + row.yStartMm * s;
   const fadeFill = 'var(--muted)';
@@ -157,6 +163,19 @@ function EdgeOverlay({
     );
   }
   if (row.kind === 'extra') {
+    const overhang = (row.overhangMm ?? 0) * s;
+    if (overhangFrom === 'inside') {
+      // board sits flush to the field edge and overhangs inward — fade the inner strip
+      return (
+        <g>
+          <rect x={X0} y={y} width={X1 - X0} height={Math.max(0, overhang)} fill={fadeFill} fillOpacity={0.2}>
+            <title>Overhang ~{Math.round(row.overhangMm ?? 0)} mm inward (from inside the border)</title>
+          </rect>
+          <line x1={X0} x2={X1} y1={y + overhang} y2={y + overhang} stroke="var(--ink)" strokeWidth={1.4} strokeDasharray="5 3" />
+        </g>
+      );
+    }
+    // outward: board overhangs past the field edge
     const boardBottom = y + pw * s;
     return (
       <g>

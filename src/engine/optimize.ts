@@ -69,7 +69,7 @@ export function optimize(project: Project): Result {
 
     const joists = joistPositions(field, backingBoardWidth);
     const seams = legalSeams(field, backingBoardWidth);
-    const slots = rowSlots(field, plank.width, gaps, widthFit);
+    const slots = rowSlots(field, plank.width, gaps, widthFit, deck.overhangFrom);
 
     // Friendly, deck-level diagnostics — computed BEFORE the expensive candidate
     // enumeration so a bad value (e.g. a tiny spacing) can't blow up the engine.
@@ -139,6 +139,7 @@ export function optimize(project: Project): Result {
           widthMm: slot.widthMm,
           yStartMm: slot.yStartMm,
           kind: slot.kind,
+          overhangMm: slot.overhangMm,
           seams: [],
           segments: [],
         };
@@ -170,6 +171,7 @@ export function optimize(project: Project): Result {
         widthMm: slot.widthMm,
         yStartMm: slot.yStartMm,
         kind: slot.kind,
+        overhangMm: slot.overhangMm,
         seams: sel.seams,
         segments,
       };
@@ -186,37 +188,89 @@ export function optimize(project: Project): Result {
         const k = Math.ceil(len / maxUsable);
         return Array.from({ length: k }, () => round((len - (k - 1) * gaps.endGap) / k));
       };
-      const addBoard = (base: string, idKey: string, x: number, y: number, cross: number, len: number, horizontal: boolean) => {
+      const emit = (name: string, idKey: string, pi: number, len: number, x: number, y: number, w: number, h: number, points?: string) => {
+        const bb: BorderBoard = { name, lengthMm: round(len), x: round(x), y: round(y), w: round(w), h: round(h), points, barId: '', reusedOffcut: false };
+        borderBoards.push(bb);
+        demand.push({ id: `${deck.id}#F#${idKey}#${pi}`, length: bb.lengthMm, label: name });
+        borderIndex.set(`${deck.id}#F#${idKey}#${pi}`, bb);
+      };
+      // Butt-jointed side: a straight run split into pieces.
+      const addButt = (base: string, idKey: string, x: number, y: number, cross: number, len: number, horizontal: boolean) => {
         const pieces = splitLen(len);
         let cursor = horizontal ? x : y;
         pieces.forEach((plen, pi) => {
           const name = pieces.length > 1 ? `${base}.${pi + 1}` : base;
-          const id = `${deck.id}#F#${idKey}#${pi}`;
-          const bb: BorderBoard = {
-            name,
-            lengthMm: plen,
-            x: round(horizontal ? cursor : x),
-            y: round(horizontal ? y : cursor),
-            w: round(horizontal ? plen : cross),
-            h: round(horizontal ? cross : plen),
-            barId: '',
-            reusedOffcut: false,
-          };
-          borderBoards.push(bb);
-          demand.push({ id, length: plen, label: name });
-          borderIndex.set(id, bb);
+          emit(name, idKey, pi, plen, horizontal ? cursor : x, horizontal ? y : cursor, horizontal ? plen : cross, horizontal ? cross : plen);
           cursor += plen + gaps.endGap;
         });
       };
+      // Mitred side: 45° cuts at the true corners; interior joints (when split) are square.
+      const addMitred = (base: string, idKey: string, side: 'T' | 'B' | 'L' | 'R', o: number) => {
+        const horizontal = side === 'T' || side === 'B';
+        const len = horizontal ? deck.length - 2 * o : deck.width - 2 * o;
+        const pieces = splitLen(len);
+        let cur = o;
+        pieces.forEach((plen, pi) => {
+          const a = cur;
+          const b = cur + plen;
+          const ms = pi === 0; // mitre at the starting corner
+          const me = pi === pieces.length - 1; // mitre at the ending corner
+          const name = pieces.length > 1 ? `${base}.${pi + 1}` : base;
+          let pts = '';
+          let bx = 0, by = 0, bw = 0, bh = 0;
+          if (side === 'T') {
+            const iL = ms ? a + pw : a, iR = me ? b - pw : b;
+            pts = `${a},${o} ${b},${o} ${iR},${o + pw} ${iL},${o + pw}`;
+            bx = a; by = o; bw = plen; bh = pw;
+          } else if (side === 'B') {
+            const yb = deck.width - o, yt = deck.width - o - pw;
+            const iL = ms ? a + pw : a, iR = me ? b - pw : b;
+            pts = `${a},${yb} ${b},${yb} ${iR},${yt} ${iL},${yt}`;
+            bx = a; by = yt; bw = plen; bh = pw;
+          } else if (side === 'L') {
+            const iT = ms ? a + pw : a, iB = me ? b - pw : b;
+            pts = `${o},${a} ${o},${b} ${o + pw},${iB} ${o + pw},${iT}`;
+            bx = o; by = a; bw = pw; bh = plen;
+          } else {
+            const xr = deck.length - o, xl = deck.length - o - pw;
+            const iT = ms ? a + pw : a, iB = me ? b - pw : b;
+            pts = `${xr},${a} ${xr},${b} ${xl},${iB} ${xl},${iT}`;
+            bx = xl; by = a; bw = pw; bh = plen;
+          }
+          emit(name, idKey, pi, plen, bx, by, bw, bh, pts);
+          cur += plen + gaps.endGap;
+        });
+      };
+
       for (let ring = 0; ring < N; ring++) {
         const o = ring * step;
-        const longLen = deck.length - 2 * o; // top & bottom run the full (inset) length
-        const sideLen = deck.width - 2 * o - 2 * pw; // left & right butt between them
-        addBoard(`${deckLetter}·F${ring + 1}T`, `${ring}T`, o, o, pw, longLen, true);
-        addBoard(`${deckLetter}·F${ring + 1}B`, `${ring}B`, o, deck.width - o - pw, pw, longLen, true);
-        if (sideLen > 0) {
-          addBoard(`${deckLetter}·F${ring + 1}L`, `${ring}L`, o, o + pw, pw, sideLen, false);
-          addBoard(`${deckLetter}·F${ring + 1}R`, `${ring}R`, deck.length - o - pw, o + pw, pw, sideLen, false);
+        const F = (side: string) => `${deckLetter}·F${ring + 1}${side}`;
+        if (deck.cornerStyle === 'mitered') {
+          addMitred(F('T'), `${ring}T`, 'T', o);
+          addMitred(F('B'), `${ring}B`, 'B', o);
+          addMitred(F('L'), `${ring}L`, 'L', o);
+          addMitred(F('R'), `${ring}R`, 'R', o);
+        } else {
+          const tbOuter = deck.cornerStyle === 'topBottom' || (deck.cornerStyle === 'staggered' && ring % 2 === 0);
+          if (tbOuter) {
+            const longLen = deck.length - 2 * o;
+            const sideLen = deck.width - 2 * o - 2 * pw;
+            addButt(F('T'), `${ring}T`, o, o, pw, longLen, true);
+            addButt(F('B'), `${ring}B`, o, deck.width - o - pw, pw, longLen, true);
+            if (sideLen > 0) {
+              addButt(F('L'), `${ring}L`, o, o + pw, pw, sideLen, false);
+              addButt(F('R'), `${ring}R`, deck.length - o - pw, o + pw, pw, sideLen, false);
+            }
+          } else {
+            const longLen = deck.width - 2 * o;
+            const midLen = deck.length - 2 * o - 2 * pw;
+            addButt(F('L'), `${ring}L`, o, o, pw, longLen, false);
+            addButt(F('R'), `${ring}R`, deck.length - o - pw, o, pw, longLen, false);
+            if (midLen > 0) {
+              addButt(F('T'), `${ring}T`, o + pw, o, pw, midLen, true);
+              addButt(F('B'), `${ring}B`, o + pw, deck.width - o - pw, pw, midLen, true);
+            }
+          }
         }
       }
     }
@@ -228,6 +282,7 @@ export function optimize(project: Project): Result {
       widthMm: deck.width,
       plankWidthMm: plank.width,
       fieldInsetMm: bd,
+      overhangFrom: deck.overhangFrom,
       borderBoards,
       joists,
       rows,

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Capacitor } from '@capacitor/core';
-import type { Deck, Project, StaggerMode, WidthFit } from '../model/types';
+import type { CornerStyle, Deck, OverhangFrom, Project, StaggerMode, WidthFit } from '../model/types';
 import { defaultProject } from '../model/defaults';
 import { optimize } from '../engine/optimize';
 import { saveFile } from '../platform/save';
@@ -30,6 +30,7 @@ function normalizeProject(data: Partial<Project>): Project {
   const deckBase = (i: number): Deck => ({
     id: `deck${i + 1}`, label: `Deck ${i + 1}`, length: 4000, width: 3000,
     spacing: 600, firstOffset: defaultProject.decks[0].firstOffset, noSeams: false, borderBoards: 0,
+    cornerStyle: 'mitered', overhangFrom: 'outside',
   });
   const srcDecks = Array.isArray(data.decks) && data.decks.length ? data.decks : defaultProject.decks;
   const decks: Deck[] = srcDecks.map((d, i) => ({ ...deckBase(i), ...d }));
@@ -117,7 +118,7 @@ export function App() {
   const updateDeck = (i: number, p: Partial<Deck>) =>
     patch({ decks: project.decks.map((d, idx) => (idx === i ? { ...d, ...p } : d)) });
   const addDeck = () =>
-    patch({ decks: [...project.decks, { id: `deck${Date.now()}`, label: `Deck ${project.decks.length + 1}`, length: 4000, width: 3000, spacing: 600, firstOffset: defaultProject.decks[0].firstOffset, noSeams: false, borderBoards: 0 }] });
+    patch({ decks: [...project.decks, { id: `deck${Date.now()}`, label: `Deck ${project.decks.length + 1}`, length: 4000, width: 3000, spacing: 600, firstOffset: defaultProject.decks[0].firstOffset, noSeams: false, borderBoards: 0, cornerStyle: 'mitered', overhangFrom: 'outside' }] });
   const removeDeck = (i: number) => {
     if (!window.confirm(`Delete deck "${project.decks[i]?.label}"? This can't be undone.`)) return;
     patch({ decks: project.decks.filter((_, idx) => idx !== i) });
@@ -200,6 +201,24 @@ export function App() {
               <input type="checkbox" checked={d.noSeams} onChange={(e) => updateDeck(i, { noSeams: e.target.checked })} />
             </Field>
             <Num label="Border boards" hint="Picture-frame border: number of decking boards run around the whole deck perimeter (0 = none). The planking field shrinks to fit inside the border." value={d.borderBoards} onChange={(v) => updateDeck(i, { borderBoards: Math.max(0, Math.round(v)) })} />
+            {d.borderBoards > 0 && (
+              <Field label="Corner style" hint="How the border boards meet at the corners. Mitered = 45° cuts; the butt options choose which pair of sides runs full-length (staggered alternates ring by ring).">
+                <select value={d.cornerStyle} onChange={(e) => updateDeck(i, { cornerStyle: e.target.value as CornerStyle })}>
+                  <option value="mitered">Mitered (45°)</option>
+                  <option value="topBottom">Butt — top/bottom long</option>
+                  <option value="sides">Butt — sides long</option>
+                  <option value="staggered">Butt — staggered</option>
+                </select>
+              </Field>
+            )}
+            {d.borderBoards > 0 && project.widthFit === 'extra' && (
+              <Field label="Overhang from" hint="With a border and the 'Extra board' edge fit: 'outside' lets the extra field board overhang past the inner border edge; 'inside' sits it flush to the border and overhangs inward.">
+                <select value={d.overhangFrom} onChange={(e) => updateDeck(i, { overhangFrom: e.target.value as OverhangFrom })}>
+                  <option value="outside">Outside</option>
+                  <option value="inside">Inside border</option>
+                </select>
+              </Field>
+            )}
             <button className="btn secondary" style={{ fontSize: 12, padding: 6 }} disabled={d.noSeams} onClick={() => autoFitSpacing(i)} title="Set the board spacing to the largest value at or below the current one that splits the deck length into equal bays.">⚙ Auto-fit even spacing</button>
             {project.decks.length > 1 && (
               <button className="btn secondary" onClick={() => removeDeck(i)} style={{ fontSize: 12, padding: 6 }}>Remove deck</button>

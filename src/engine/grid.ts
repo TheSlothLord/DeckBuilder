@@ -1,4 +1,4 @@
-import type { Deck, Gaps, RowKind, WidthFit } from '../model/types';
+import type { Deck, Gaps, OverhangFrom, RowKind, WidthFit } from '../model/types';
 
 const EPS = 1e-6;
 
@@ -32,6 +32,7 @@ export interface RowSlot {
   widthMm: number;
   yStartMm: number;
   kind: RowKind;
+  overhangMm?: number;
 }
 
 const MIN_REMAINDER = 1; // mm — ignore a sliver this small (it's just the trailing gap)
@@ -41,7 +42,13 @@ const MIN_REMAINDER = 1; // mm — ignore a sliver this small (it's just the tra
  * the leftover strip according to `widthFit` — rip a board to fit, add an extra
  * overhanging board, or leave a gap.
  */
-export function rowSlots(deck: Deck, plankWidth: number, gaps: Gaps, widthFit: WidthFit): RowSlot[] {
+export function rowSlots(
+  deck: Deck,
+  plankWidth: number,
+  gaps: Gaps,
+  widthFit: WidthFit,
+  overhangFrom: OverhangFrom = 'outside',
+): RowSlot[] {
   const pitch = plankWidth + gaps.sideGap;
   if (pitch <= 0 || deck.width <= 0) return [];
 
@@ -60,7 +67,10 @@ export function rowSlots(deck: Deck, plankWidth: number, gaps: Gaps, widthFit: W
   if (remWidth > MIN_REMAINDER) {
     const i = full;
     if (widthFit === 'extra') {
-      slots.push({ index: i, widthMm: plankWidth, yStartMm: round(y), kind: 'extra' });
+      // A full board with an overhang. 'outside' overhangs past the far edge;
+      // 'inside' sits flush to the far edge and overhangs inward.
+      const yStart = overhangFrom === 'inside' ? round(deck.width - plankWidth) : round(y);
+      slots.push({ index: i, widthMm: plankWidth, yStartMm: yStart, kind: 'extra', overhangMm: round(plankWidth - remWidth) });
     } else if (widthFit === 'gap') {
       slots.push({ index: i, widthMm: remWidth, yStartMm: round(y), kind: 'gap' });
     } else {

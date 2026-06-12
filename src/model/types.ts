@@ -31,6 +31,16 @@ export interface PlankSpec {
   store: StoreStock[]; // what I can buy
 }
 
+/** How border boards meet at the corners. */
+export type CornerStyle =
+  | 'mitered' // 45° mitre cuts (default)
+  | 'topBottom' // top & bottom boards run the full length; sides butt between
+  | 'sides' // left & right run the full width; top & bottom butt between
+  | 'staggered'; // alternate which runs long, ring by ring (woven look)
+
+/** With a border + 'extra' edge fit, which way the overhanging field board sits. */
+export type OverhangFrom = 'outside' | 'inside';
+
 export interface Deck {
   id: string;
   label: string;
@@ -40,6 +50,8 @@ export interface Deck {
   firstOffset: mm; // edge-board inset: centre of the edge backing boards, this far in from each edge
   noSeams: boolean; // force single full-length boards per row (no butt joints)
   borderBoards: number; // picture-frame border: number of perimeter rings (0 = none)
+  cornerStyle: CornerStyle; // how the border boards meet at the corners
+  overhangFrom: OverhangFrom; // with a border + 'extra' edge fit: which way the extra board overhangs
 }
 
 export interface Gaps {
@@ -108,6 +120,7 @@ export interface Row {
   widthMm: mm; // the board's actual width as laid (plank width, or the rip width)
   yStartMm: mm; // position across the deck
   kind: RowKind;
+  overhangMm?: mm; // for 'extra' rows: how much the board overhangs
   seams: mm[]; // joist positions of interior seams
   segments: Segment[];
 }
@@ -120,6 +133,7 @@ export interface BorderBoard {
   y: mm;
   w: mm; // drawn width  (= board length or plank width depending on orientation)
   h: mm; // drawn height
+  points?: string; // SVG polygon points (deck coords) for mitred boards; rect used if absent
   barId: string;
   reusedOffcut: boolean;
 }
@@ -131,6 +145,7 @@ export interface DeckLayout {
   widthMm: mm;
   plankWidthMm: mm; // full board width, for drawing rips / overhangs
   fieldInsetMm: mm; // border depth: the planking field is inset this far on all sides
+  overhangFrom: OverhangFrom; // which way an 'extra' field board overhangs (for drawing)
   borderBoards: BorderBoard[];
   joists: mm[]; // field-local joist positions (offset by fieldInsetMm when drawn)
   rows: Row[]; // field-local rows
