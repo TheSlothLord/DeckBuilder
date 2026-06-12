@@ -173,7 +173,7 @@ export function optimize(project: Project): Result {
           const bevel = segCuts.length
             ? ` · bevel ${segCuts.map((c) => `${c.side} ${c.angleDeg}°`).join(', ')} (short ${shortMm} mm)`
             : '';
-          demand.push({ id, length: lengthMm, label: name + bevel });
+          demand.push({ id, length: lengthMm, label: name + bevel, cuts: segCuts.length ? segCuts : undefined });
           segIndex.set(id, seg);
         }
         segBaseBySlot.set(u.slotIdx, segBase + last + 1);

@@ -3,7 +3,7 @@
 // into the shortest open bar/offcut that still fits (including kerf), so offcuts
 // are consumed before fresh stock is opened.
 
-import type { CutConfig, CutInstruction, StockOption, StockSource } from '../model/types';
+import type { AngledCut, CutConfig, CutInstruction, StockOption, StockSource } from '../model/types';
 
 const EPS = 1e-6;
 
@@ -11,6 +11,7 @@ export interface DemandPiece {
   id: string;
   length: number;
   label: string;
+  cuts?: AngledCut[]; // bevelled ends, passed through to the cut plan
 }
 
 export interface Placement {
@@ -28,7 +29,7 @@ interface Bar {
   id: string;
   stockLength: number;
   remaining: number; // usable length left
-  pieces: { length: number; label: string }[];
+  pieces: { length: number; label: string; cuts?: AngledCut[] }[];
   price?: number;
   source: StockSource;
 }
@@ -72,7 +73,7 @@ export function packCutStock(
     }
 
     const reusedOffcut = target.pieces.length > 0;
-    target.pieces.push({ length: piece.length, label: piece.label });
+    target.pieces.push({ length: piece.length, label: piece.label, cuts: piece.cuts });
     target.remaining -= need;
     placement[piece.id] = { barId: target.id, reusedOffcut };
   }
@@ -126,7 +127,7 @@ function toInstruction(bar: Bar, cut: CutConfig): CutInstruction {
     barId: bar.id,
     stockLength: bar.stockLength,
     source: bar.source,
-    pieces: bar.pieces.map((p) => ({ lengthMm: p.length, usedIn: p.label })),
+    pieces: bar.pieces.map((p) => ({ lengthMm: p.length, usedIn: p.label, cuts: p.cuts })),
     cuts,
     kerfLoss,
     endRemainder,
